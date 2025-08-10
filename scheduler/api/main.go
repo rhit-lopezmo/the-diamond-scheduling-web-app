@@ -15,7 +15,6 @@ import (
 var conn *pgx.Conn
 
 func main() {
-	// ONLY FOR LOCALHOST, NEED TO REMOVE !!!
 	_ = godotenv.Load()
 
 	log.SetFlags(log.Ltime)
@@ -23,37 +22,39 @@ func main() {
 	// get all the env variables
 	port := os.Getenv("PORT")
 	if port == "" {
-		log.Fatal("[API] Error finding 'PORT' in env file.")
+		log.Fatalln("[API] Error finding 'PORT' in env file.")
 	}
 
 	dbUrl := os.Getenv("DATABASE_URL")
 	if dbUrl == "" {
-		log.Fatal("[API] Error finding 'DATABASE_URL' in env file.")
+		log.Fatalln("[API] Error finding 'DATABASE_URL' in env file.")
 	}
 
 	corsOrigin := os.Getenv("CORS_ORIGIN")
 	if corsOrigin == "" {
-		log.Fatal("[API] Error finding 'CORS_ORIGIN' in env file.")
+		log.Fatalln("[API] Error finding 'CORS_ORIGIN' in env file.")
 	}
 
 	// connect to database with a 5 second timeout window before it fails + cancels
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, dbUrl)
+	var err error
+	conn, err = pgx.Connect(ctx, dbUrl)
 	if err != nil {
-		log.Print("[API] Error connecting to the database.", err)
+		log.Println("[API] Error connecting to the database.", err)
 		return
 	}
 	defer conn.Close(context.Background())
 
 	// ping the database
-	if err := conn.Ping(ctx); err != nil {
-		log.Print("[API] Error when pinging the database", err)
+	if err = conn.Ping(ctx); err != nil {
+		log.Println("[API] Error when pinging the database", err)
 		return
 	}
 	
 	// setup gin
+	gin.SetMode(gin.ReleaseMode)
 	ginEngine := gin.Default()
 
 	// setup CORS (for dev)
@@ -73,6 +74,14 @@ func main() {
 
 	// setup the endpoints for the api
 	setupEndpoints(ginEngine)	
+
+	// start server
+	log.Printf("[API] Server started on port %s...\n", port)
+	if err := ginEngine.Run(":" + port); err != nil {
+		log.Println("[API] Error starting server.", err)
+		return
+	}
+
 }
 
 func setupEndpoints(ginEngine *gin.Engine) {
@@ -90,11 +99,12 @@ func setupEndpoints(ginEngine *gin.Engine) {
 					"db": "down",
 				},
 			)
+			return
 		}
 		
 		// ping success
 		c.JSON(
-			http.StatusServiceUnavailable,
+			http.StatusOK,
 			gin.H{
 				"status": "healthy",
 				"db": "up",

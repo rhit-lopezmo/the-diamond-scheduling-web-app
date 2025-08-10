@@ -156,6 +156,7 @@ func setupEndpoints(ginEngine *gin.Engine) {
 			return
 		}
 
+		c.Header("Location", "/api/reservations/"+reservation.Id)
 		c.JSON(http.StatusCreated, reservation)
 	})
 }

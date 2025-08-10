@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
+	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
 )
 
 var conn *pgx.Conn
@@ -65,7 +66,7 @@ func main() {
 		log.Println("[API] Error when pinging the database", err)
 		return
 	}
-	
+
 	// setup gin
 	gin.SetMode(gin.ReleaseMode)
 	ginEngine := gin.Default()
@@ -75,7 +76,7 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", corsOrigin)
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
+
 		// initial check by browser will go here before executing http method
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -86,7 +87,7 @@ func main() {
 	})
 
 	// setup the endpoints for the api
-	setupEndpoints(ginEngine)	
+	setupEndpoints(ginEngine)
 
 	// start server
 	log.Printf("[API] Server started on port %s...\n", port)
@@ -99,29 +100,59 @@ func main() {
 
 func setupEndpoints(ginEngine *gin.Engine) {
 	ginEngine.GET("/healthcheck", func(c *gin.Context) {
-		// ping DB to ensure it's up	
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)	
+		// ping DB to ensure it's up
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
- 
+
 		if err := conn.Ping(ctx); err != nil {
 			// ping failed
 			c.JSON(
 				http.StatusServiceUnavailable,
 				gin.H{
 					"status": "unhealthy",
-					"db": "down",
+					"db":     "down",
 				},
 			)
 			return
 		}
-		
+
 		// ping success
 		c.JSON(
 			http.StatusOK,
 			gin.H{
 				"status": "healthy",
-				"db": "up",
+				"db":     "up",
 			},
 		)
+	})
+
+	ginEngine.GET("/api/tunnels", func(c *gin.Context) {
+		// dummy data for available tunnels
+		var tunnels []models.Tunnel
+		tunnels = append(tunnels, models.Tunnel{Id: 1, Name: "Tunnel 1"})
+		tunnels = append(tunnels, models.Tunnel{Id: 2, Name: "Tunnel 2"})
+		tunnels = append(tunnels, models.Tunnel{Id: 3, Name: "Tunnel 3"})
+		tunnels = append(tunnels, models.Tunnel{Id: 5})
+
+		c.JSON(http.StatusOK, tunnels)
+	})
+
+	ginEngine.GET("/api/reservations", func(c *gin.Context) {
+		// dummy data for reservations
+		var reservations []models.Reservation
+		reservations = append(
+			reservations,
+			models.Reservation{
+				Id:       "test-id",
+				TunnelId: 1,
+				CustomerId: "test-customer",
+				Title: "Lopez - 60 mins",
+				StartsAt: time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
+				EndsAt: time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),			
+				Notes: "Bring helmet",
+			},
+		)
+
+		c.JSON(http.StatusOK, reservations)
 	})
 }

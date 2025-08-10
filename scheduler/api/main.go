@@ -138,6 +138,49 @@ func setupEndpoints(ginEngine *gin.Engine) {
 		c.JSON(http.StatusOK, reservations)
 	})
 
+	ginEngine.POST("/api/reservations", func(c *gin.Context) {
+		var reservation models.Reservation
+
+		if err := c.BindJSON(&reservation); err != nil {
+			log.Println("[API] Error binding JSON on POST method at /api/reservations.", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			return
+		}
+
+		c.Header("Location", "/api/reservations/"+reservation.Id)
+		c.JSON(http.StatusCreated, reservation)
+	})
+
+	ginEngine.GET("/api/reservations/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		reservation := loadReservationById(id)
+
+		c.JSON(http.StatusOK, reservation)
+	})
+
+	ginEngine.PUT("/api/reservations/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		log.Println("[API] Temp log to use id for PUT request. id:", id)
+
+		var reservation models.Reservation
+
+		if err := c.BindJSON(&reservation); err != nil {
+			log.Println("[API] Error binding JSON on PUT method at /api/reservations/:id.", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, reservation)
+	})
+
+	ginEngine.DELETE("/api/reservations/:id", func(c *gin.Context) {
+		id := c.Param("id")
+
+		log.Println("[API] Temp log to delete reservation with id = ", id)
+
+		c.Status(http.StatusNoContent)
+	})
+
 	ginEngine.GET("/api/reservations/search", func(c *gin.Context) {
 		fromTimeStr := c.Query("from")
 		toTimeStr := c.Query("to")
@@ -146,18 +189,6 @@ func setupEndpoints(ginEngine *gin.Engine) {
 		reservations := loadReservationDataWithParams(fromTimeStr, toTimeStr, tunnelIdStr)
 
 		c.JSON(http.StatusOK, reservations)
-	})
-
-	ginEngine.POST("/api/reservations", func(c *gin.Context) {
-		var reservation models.Reservation
-
-		if err := c.BindJSON(&reservation); err != nil {
-			log.Println("[API] Error binding JSON on POST method at /api/reservations.", err)
-			return
-		}
-
-		c.Header("Location", "/api/reservations/"+reservation.Id)
-		c.JSON(http.StatusCreated, reservation)
 	})
 }
 
@@ -235,4 +266,18 @@ func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.R
 
 	log.Println("[API] Found no matching reservations, returning nothing...")
 	return reservations
+}
+
+func loadReservationById(id string) models.Reservation {
+	reservation := models.Reservation{
+		Id:         id,
+		TunnelId:   1,
+		CustomerId: "test-customer",
+		Title:      "Lopez - 60 mins",
+		StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
+		EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
+		Notes:      "Bring helmet",
+	}
+
+	return reservation
 }

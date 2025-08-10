@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -25,15 +26,27 @@ func main() {
 		log.Fatalln("[API] Error finding 'PORT' in env file.")
 	}
 
-	dbUrl := os.Getenv("DATABASE_URL")
-	if dbUrl == "" {
-		log.Fatalln("[API] Error finding 'DATABASE_URL' in env file.")
-	}
-
 	corsOrigin := os.Getenv("CORS_ORIGIN")
 	if corsOrigin == "" {
 		log.Fatalln("[API] Error finding 'CORS_ORIGIN' in env file.")
 	}
+
+	postgresUser := os.Getenv("POSTGRES_USER")
+	if postgresUser == "" {
+		log.Fatalln("[API] Error finding 'POSTGRES_USER' in env file.")
+	}
+
+	postgresPass := os.Getenv("POSTGRES_PASSWORD")
+	if postgresPass == "" {
+		log.Fatalln("[API] Error finding 'POSTGRES_PASSWORD' in env file.")
+	}
+
+	// generate dbUrl
+	dbUrl := fmt.Sprintf(
+		"postgres://%s:%s@db:5432/the-diamond-scheduler?sslmode=disable",
+		postgresUser,
+		postgresPass,
+	)
 
 	// connect to database with a 5 second timeout window before it fails + cancels
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

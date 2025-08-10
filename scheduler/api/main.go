@@ -147,6 +147,17 @@ func setupEndpoints(ginEngine *gin.Engine) {
 
 		c.JSON(http.StatusOK, reservations)
 	})
+
+	ginEngine.POST("/api/reservations", func(c *gin.Context) {
+		var reservation models.Reservation
+
+		if err := c.BindJSON(&reservation); err != nil {
+			log.Println("[API] Error binding JSON on POST method at /api/reservations.", err)
+			return
+		}
+
+		c.JSON(http.StatusCreated, reservation)
+	})
 }
 
 func loadTunnelData() []models.Tunnel {
@@ -164,13 +175,13 @@ func loadReservationData() []models.Reservation {
 	reservations = append(
 		reservations,
 		models.Reservation{
-			Id:       "test-id",
-			TunnelId: 1,
+			Id:         "test-id",
+			TunnelId:   1,
 			CustomerId: "test-customer",
-			Title: "Lopez - 60 mins",
-			StartsAt: time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
-			EndsAt: time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),			
-			Notes: "Bring helmet",
+			Title:      "Lopez - 60 mins",
+			StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
+			EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
+			Notes:      "Bring helmet",
 		},
 	)
 
@@ -185,13 +196,13 @@ func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.R
 		reservations = append(
 			reservations,
 			models.Reservation{
-				Id:       "when-tunnel-id",
-				TunnelId: 3,
+				Id:         "when-tunnel-id",
+				TunnelId:   3,
 				CustomerId: "test-customer",
-				Title: "Lopez - 60 mins",
-				StartsAt: time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
-				EndsAt: time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),			
-				Notes: "Bring helmet",
+				Title:      "Lopez - 60 mins",
+				StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
+				EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
+				Notes:      "Bring helmet",
 			},
 		)
 
@@ -208,13 +219,13 @@ func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.R
 		reservations = append(
 			reservations,
 			models.Reservation{
-				Id:       "when-after-aug-first",
-				TunnelId: 1,
+				Id:         "when-after-aug-first",
+				TunnelId:   1,
 				CustomerId: "test-customer",
-				Title: "Lopez - 60 mins",
-				StartsAt: time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
-				EndsAt: time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),			
-				Notes: "Bring helmet",
+				Title:      "Lopez - 60 mins",
+				StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
+				EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
+				Notes:      "Bring helmet",
 			},
 		)
 

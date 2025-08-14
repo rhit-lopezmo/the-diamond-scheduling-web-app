@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "the-diamond-scheduling-app",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

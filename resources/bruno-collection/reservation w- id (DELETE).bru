@@ -1,0 +1,15 @@
+meta {
+  name: reservation w/ id (DELETE)
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{host}}/api/reservations/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: test-delete-id
+}

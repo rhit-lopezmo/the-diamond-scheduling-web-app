@@ -1,0 +1,15 @@
+meta {
+  name: reservation w/ id
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/api/reservations/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: testing-id
+}

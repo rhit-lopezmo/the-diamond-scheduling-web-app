@@ -2,19 +2,18 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
-	"database/sql"
-	"embed"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
+	"github.com/pressly/goose/v3"
 	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
 )
 
@@ -53,11 +52,29 @@ func main() {
 		postgresPass,
 	)
 
+	// setup + run migrations w/ goose
+	sqlDB, err := sql.Open("pgx", dbUrl)
+	if err != nil {
+		log.Fatalln("[API] Error connecting to database:", err)
+	}
+	defer sqlDB.Close()
+
+	if err = goose.SetDialect("postgres"); err != nil {
+		log.Println("[API] Error setting goose dialect:", err)
+		return
+	}
+
+	if err = goose.Up(sqlDB, "db/migrations"); err != nil {
+		log.Println("[API] Error running goose migrations:", err)
+		return
+	}
+
+	log.Println("[API] Goose finished running migrations successfully.")
+
 	// connect to database with a 5 second timeout window before it fails + cancels
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var err error
 	conn, err = pgx.Connect(ctx, dbUrl)
 	if err != nil {
 		log.Println("[API] Error connecting to the database.", err)

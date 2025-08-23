@@ -148,7 +148,13 @@ func setupEndpoints(ginEngine *gin.Engine) {
 	})
 
 	ginEngine.GET("/api/tunnels", func(c *gin.Context) {
-		tunnels := loadTunnelData()
+		tunnels, err := loadTunnelData(c.Request.Context())
+
+		if err != nil {
+			log.Println("[API] Error loading tunnel data:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
 
 		c.JSON(http.StatusOK, tunnels)
 	})
@@ -213,14 +219,34 @@ func setupEndpoints(ginEngine *gin.Engine) {
 	})
 }
 
-func loadTunnelData() []models.Tunnel {
+func loadTunnelData(ctx context.Context) ([]models.Tunnel, error) {
 	var tunnels []models.Tunnel
-	tunnels = append(tunnels, models.Tunnel{Id: 1, Name: "Tunnel 1"})
-	tunnels = append(tunnels, models.Tunnel{Id: 2, Name: "Tunnel 2"})
-	tunnels = append(tunnels, models.Tunnel{Id: 3, Name: "Tunnel 3"})
-	tunnels = append(tunnels, models.Tunnel{Id: 5})
 
-	return tunnels
+	rows, err := conn.Query(ctx, `
+		SELECT * FROM tunnels
+	`)
+
+	if err != nil {
+		log.Println("[API] Error querying database:", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tunnel models.Tunnel
+		if err = rows.Scan(&tunnel.Id, &tunnel.Name, &tunnel.IsActive, &tunnel.CreatedAt); err != nil {
+			log.Println("[API] Error scanning row:", err)
+			return nil, err
+		}
+		tunnels = append(tunnels, tunnel)
+	}
+
+	if rows.Err() != nil {
+		log.Println("[API] Error scanning rows:", rows.Err())
+		return nil, rows.Err()
+	}
+
+	return tunnels, nil
 }
 
 func loadReservationData() []models.Reservation {

@@ -7,9 +7,13 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"database/sql"
+	"embed"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 	"github.com/joho/godotenv"
 	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
 )

@@ -9,22 +9,15 @@ CREATE TABLE reservations (
 
     customer_first_name    text NOT NULL,
     customer_last_name     text NOT NULL,
-    customer_phone         text,
+    customer_phone         text NOT NULL,
     customer_email         text,
 
-    -- Keep timestamptz; we’ll compute end_time in app or trigger
     start_time             timestamptz NOT NULL,
     duration_minutes       int NOT NULL CHECK (duration_minutes > 0),
     end_time               timestamptz NOT NULL,
 
     status                 reservation_status NOT NULL DEFAULT 'held',
-    source                 text NOT NULL DEFAULT 'web',  -- 'web'|'admin'
-    is_custom_duration     boolean NOT NULL DEFAULT false,
-    price_cents            int CHECK (price_cents IS NULL OR price_cents >= 0),
     notes                  text,
-
-    stripe_payment_intent_id   text,
-    stripe_checkout_session_id text,
 
     created_at             timestamptz NOT NULL DEFAULT now(),
 

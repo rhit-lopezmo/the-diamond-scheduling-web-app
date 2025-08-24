@@ -9,8 +9,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
@@ -160,7 +162,13 @@ func setupEndpoints(ginEngine *gin.Engine) {
 	})
 
 	ginEngine.GET("/api/reservations", func(c *gin.Context) {
-		reservations := loadReservationData()
+		reservations, err := loadReservationData(c.Request.Context())
+
+		if err != nil {
+			log.Println("[API] Error loading reservation data:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
 
 		c.JSON(http.StatusOK, reservations)
 	})
@@ -174,7 +182,7 @@ func setupEndpoints(ginEngine *gin.Engine) {
 			return
 		}
 
-		c.Header("Location", "/api/reservations/"+reservation.Id)
+		c.Header("Location", "/api/reservations/"+reservation.Id.String())
 		c.JSON(http.StatusCreated, reservation)
 	})
 
@@ -222,89 +230,52 @@ func setupEndpoints(ginEngine *gin.Engine) {
 func loadTunnelData(ctx context.Context) ([]models.Tunnel, error) {
 	var tunnels []models.Tunnel
 
-	rows, err := conn.Query(ctx, `
-		SELECT * FROM tunnels
-	`)
+	err := pgxscan.Select(
+		ctx,
+		conn,
+		&tunnels,
+		`SELECT * FROM tunnels`,
+	)
 
 	if err != nil {
 		log.Println("[API] Error querying database:", err)
 		return nil, err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var tunnel models.Tunnel
-		if err = rows.Scan(&tunnel.Id, &tunnel.Name, &tunnel.IsActive, &tunnel.CreatedAt); err != nil {
-			log.Println("[API] Error scanning row:", err)
-			return nil, err
-		}
-		tunnels = append(tunnels, tunnel)
-	}
-
-	if rows.Err() != nil {
-		log.Println("[API] Error scanning rows:", rows.Err())
-		return nil, rows.Err()
-	}
 
 	return tunnels, nil
 }
 
-func loadReservationData() []models.Reservation {
+func loadReservationData(ctx context.Context) ([]models.Reservation, error) {
 	var reservations []models.Reservation
-	reservations = append(
-		reservations,
-		models.Reservation{
-			Id:         "test-id",
-			TunnelId:   1,
-			CustomerId: "test-customer",
-			Title:      "Lopez - 60 mins",
-			StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
-			EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
-			Notes:      "Bring helmet",
-		},
+
+	err := pgxscan.Select(
+		ctx,
+		conn,
+		&reservations,
+		`SELECT * FROM reservations`,
 	)
 
-	return reservations
+	if err != nil {
+		log.Println("[API] Error querying database:", err)
+		return nil, err
+	}
+
+	return reservations, nil
 }
 
 func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.Reservation {
-	// create empty slice so it doesn't repsond with nil
+	// create empty slice so it doesn't respond with nil
 	reservations := make([]models.Reservation, 0)
 
 	if tunnelId == "3" {
 		reservations = append(
 			reservations,
 			models.Reservation{
-				Id:         "when-tunnel-id",
-				TunnelId:   3,
-				CustomerId: "test-customer",
-				Title:      "Lopez - 60 mins",
-				StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
-				EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
-				Notes:      "Bring helmet",
-			},
-		)
-
-		return reservations
-	}
-
-	fromTimeParsed, err := time.Parse(time.RFC3339, fromTime)
-	if err != nil {
-		log.Println("[API] Could not parse from time when loading reservation data with params.", err)
-		return reservations
-	}
-
-	if fromTimeParsed.After(time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC)) {
-		reservations = append(
-			reservations,
-			models.Reservation{
-				Id:         "when-after-aug-first",
-				TunnelId:   1,
-				CustomerId: "test-customer",
-				Title:      "Lopez - 60 mins",
-				StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
-				EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
-				Notes:      "Bring helmet",
+				Id:        pgtype.UUID{},
+				TunnelId:  &pgtype.UUID{},
+				StartTime: pgtype.Timestamptz{},
+				EndTime:   pgtype.Timestamptz{},
+				Notes:     nil,
 			},
 		)
 
@@ -317,13 +288,9 @@ func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.R
 
 func loadReservationById(id string) models.Reservation {
 	reservation := models.Reservation{
-		Id:         id,
-		TunnelId:   1,
-		CustomerId: "test-customer",
-		Title:      "Lopez - 60 mins",
-		StartsAt:   time.Date(2025, 8, 9, 12, 0, 0, 0, time.UTC),
-		EndsAt:     time.Date(2025, 8, 9, 13, 0, 0, 0, time.UTC),
-		Notes:      "Bring helmet",
+		Id:       pgtype.UUID{},
+		TunnelId: &pgtype.UUID{},
+		Notes:    nil,
 	}
 
 	return reservation

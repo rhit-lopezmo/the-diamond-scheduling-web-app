@@ -3,6 +3,7 @@ module github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api
 go 1.24.4
 
 require (
+	github.com/georgysavva/scany/v2 v2.1.4
 	github.com/gin-gonic/gin v1.10.1
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1

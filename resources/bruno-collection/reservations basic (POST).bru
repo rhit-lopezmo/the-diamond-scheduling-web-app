@@ -1,0 +1,30 @@
+meta {
+  name: reservations basic (POST)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{host}}/api/reservations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": null,
+    "reservation_kind": "tunnel",
+    "tunnel_id": "c42147a7-de3f-4bf4-90d2-ad7bd644094b",
+    "coach_id": null,
+    "customer_first_name": "John",
+    "customer_last_name": "Doe",
+    "customer_phone": "555-123-4567",
+    "customer_email": "johndoe@example.com",
+    "start_time": "2025-08-26T14:00:00Z",
+    "duration_minutes": 60,
+    "end_time": "2025-08-26T15:00:00Z",
+    "status": "confirmed",
+    "notes": "Customer prefers tunnel #3 and has a recurring lesson weekly.",
+    "created_at": null
+  }
+}

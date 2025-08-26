@@ -182,8 +182,16 @@ func setupEndpoints(ginEngine *gin.Engine) {
 			return
 		}
 
-		c.Header("Location", "/api/reservations/"+reservation.Id.String())
-		c.JSON(http.StatusCreated, reservation)
+		// send the data to the db
+		result, err := insertReservationData(c.Request.Context(), reservation)
+		if err != nil {
+			log.Println("[API] Error inserting reservation:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.Header("Location", "/api/reservations/"+result.Id.String())
+		c.JSON(http.StatusCreated, *result)
 	})
 
 	ginEngine.GET("/api/reservations/:id", func(c *gin.Context) {
@@ -294,4 +302,62 @@ func loadReservationById(id string) models.Reservation {
 	}
 
 	return reservation
+}
+
+func insertReservationData(ctx context.Context, r models.Reservation) (*models.Reservation, error) {
+	args := pgx.NamedArgs{
+		"reservation_kind":    r.Kind,
+		"tunnel_id":           r.TunnelId,
+		"coach_id":            r.CoachId,
+		"customer_first_name": r.CustomerFirstName,
+		"customer_last_name":  r.CustomerLastName,
+		"customer_phone":      r.CustomerPhone,
+		"customer_email":      r.CustomerEmail,
+		"start_time":          r.StartTime,
+		"duration_minutes":    r.Duration,
+		"end_time":            r.EndTime,
+		"status":              r.Status,
+		"notes":               r.Notes,
+	}
+
+	const query = `
+		INSERT INTO reservations (
+			reservation_kind,
+			tunnel_id,
+			coach_id,
+			customer_first_name,
+			customer_last_name,
+			customer_phone,
+			customer_email,
+			start_time,
+			duration_minutes,
+			end_time,
+			status,
+			notes
+		)
+
+		VALUES (
+			@reservation_kind,
+			@tunnel_id,
+			@coach_id,
+			@customer_first_name,
+			@customer_last_name,
+			@customer_phone,
+			@customer_email,
+			@start_time,
+			@duration_minutes,
+			@end_time,
+			@status,
+			@notes
+		)
+
+		RETURNING *;
+	`
+
+	var out models.Reservation
+	if err := pgxscan.Get(ctx, conn, &out, query, args); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
 }

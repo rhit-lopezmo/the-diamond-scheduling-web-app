@@ -196,9 +196,21 @@ func setupEndpoints(ginEngine *gin.Engine) {
 
 	ginEngine.GET("/api/reservations/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		reservation := loadReservationById(id)
 
-		c.JSON(http.StatusOK, reservation)
+		reservation, err := loadReservationById(c.Request.Context(), id)
+		if err != nil {
+			log.Println("[API] Error loading reservation:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		if reservation == nil {
+			log.Println("[API] Could not find reservation with id:", id)
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		c.JSON(http.StatusOK, *reservation)
 	})
 
 	ginEngine.PUT("/api/reservations/:id", func(c *gin.Context) {
@@ -296,16 +308,28 @@ func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.R
 	return reservations
 }
 
-func loadReservationById(id string) models.Reservation {
-	var tunnelIdNum int32 = 3
+func loadReservationById(ctx context.Context, id string) (*models.Reservation, error) {
+	var reservation models.Reservation
 
-	reservation := models.Reservation{
-		Id:       pgtype.UUID{},
-		TunnelId: &tunnelIdNum,
-		Notes:    nil,
+	query := `SELECT * FROM reservations WHERE id=$1`
+
+	err := pgxscan.Get(
+		ctx,
+		conn,
+		&reservation,
+		query,
+		id,
+	)
+
+	if pgxscan.NotFound(err) {
+		log.Println("[API] No rows found while querying reservations")
+		return nil, nil
+	} else if err != nil {
+		log.Println("[API] Error querying database:", err)
+		return nil, err
 	}
 
-	return reservation
+	return &reservation, nil
 }
 
 func insertReservationData(ctx context.Context, r models.Reservation) (*models.Reservation, error) {

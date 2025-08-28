@@ -254,7 +254,7 @@ func loadTunnelData(ctx context.Context) ([]models.Tunnel, error) {
 }
 
 func loadReservationData(ctx context.Context) ([]models.Reservation, error) {
-	var reservations []models.Reservation
+	reservations := make([]models.Reservation, 0)
 
 	err := pgxscan.Select(
 		ctx,
@@ -276,11 +276,13 @@ func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.R
 	reservations := make([]models.Reservation, 0)
 
 	if tunnelId == "3" {
+		var tunnelIdNum int32 = 3
+
 		reservations = append(
 			reservations,
 			models.Reservation{
 				Id:        pgtype.UUID{},
-				TunnelId:  &pgtype.UUID{},
+				TunnelId:  &tunnelIdNum,
 				StartTime: pgtype.Timestamptz{},
 				EndTime:   pgtype.Timestamptz{},
 				Notes:     nil,
@@ -295,9 +297,11 @@ func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.R
 }
 
 func loadReservationById(id string) models.Reservation {
+	var tunnelIdNum int32 = 3
+
 	reservation := models.Reservation{
 		Id:       pgtype.UUID{},
-		TunnelId: &pgtype.UUID{},
+		TunnelId: &tunnelIdNum,
 		Notes:    nil,
 	}
 

@@ -4,7 +4,7 @@ CREATE TABLE reservations (
 
     reservation_kind       reservation_kind NOT NULL,
 
-    tunnel_id              uuid REFERENCES tunnels(id) ON DELETE RESTRICT,
+    tunnel_id              int REFERENCES tunnels(id) ON DELETE RESTRICT,
     coach_id               uuid REFERENCES coaches(id) ON DELETE RESTRICT,
 
     customer_first_name    text NOT NULL,

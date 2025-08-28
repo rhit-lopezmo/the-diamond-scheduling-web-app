@@ -24,7 +24,7 @@ const (
 type Reservation struct {
 	Id                pgtype.UUID        `db:"id" json:"id"`
 	Kind              ReservationKind    `db:"reservation_kind" json:"reservation_kind"`
-	TunnelId          *pgtype.UUID       `db:"tunnel_id" json:"tunnel_id"`
+	TunnelId          *int32             `db:"tunnel_id" json:"tunnel_id"`
 	CoachId           *pgtype.UUID       `db:"coach_id" json:"coach_id"`
 	CustomerFirstName string             `db:"customer_first_name" json:"customer_first_name"`
 	CustomerLastName  string             `db:"customer_last_name" json:"customer_last_name"`

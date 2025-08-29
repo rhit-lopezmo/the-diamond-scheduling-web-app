@@ -217,11 +217,24 @@ func setupEndpoints(ginEngine *gin.Engine) {
 		id := c.Param("id")
 		log.Println("[API] Temp log to use id for PUT request. id:", id)
 
-		var reservation models.Reservation
+		var reservationUpdates models.ReservationUpdate
 
-		if err := c.BindJSON(&reservation); err != nil {
+		if err := c.BindJSON(&reservationUpdates); err != nil {
 			log.Println("[API] Error binding JSON on PUT method at /api/reservations/:id.", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			return
+		}
+
+		reservation, err := updateReservationData(c.Request.Context(), id, reservationUpdates)
+		if err != nil {
+			log.Println("[API] Error updating reservation:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		if reservation == nil {
+			log.Println("[API] Cannot update reservation because it does not exist with id:", id)
+			c.Status(http.StatusNotFound)
 			return
 		}
 
@@ -245,6 +258,61 @@ func setupEndpoints(ginEngine *gin.Engine) {
 
 		c.JSON(http.StatusOK, reservations)
 	})
+}
+
+func updateReservationData(ctx context.Context, id string, reservation models.ReservationUpdate) (*models.Reservation, error) {
+	var updatedReservation models.Reservation
+
+	// send update to the db
+	args := pgx.NamedArgs{
+		"id":                  id,
+		"reservation_kind":    reservation.Kind,
+		"tunnel_id":           reservation.TunnelId,
+		"coach_id":            reservation.CoachId,
+		"customer_first_name": reservation.CustomerFirstName,
+		"customer_last_name":  reservation.CustomerLastName,
+		"customer_phone":      reservation.CustomerPhone,
+		"customer_email":      reservation.CustomerEmail,
+		"start_time":          reservation.StartTime,
+		"duration_minutes":    reservation.Duration,
+		"end_time":            reservation.EndTime,
+		"status":              reservation.Status,
+		"notes":               reservation.Notes,
+	}
+
+	query := `
+			UPDATE reservations
+			SET
+				reservation_kind = COALESCE(@reservation_kind, reservation_kind),
+				tunnel_id = COALESCE(@tunnel_id, tunnel_id),
+				coach_id = COALESCE(@coach_id, coach_id),
+				customer_first_name = COALESCE(@customer_first_name, customer_first_name),
+				customer_last_name = COALESCE(@customer_last_name, customer_last_name),
+				customer_phone = COALESCE(@customer_phone, customer_phone),
+				customer_email = COALESCE(@customer_email, customer_email),
+				start_time = COALESCE(@start_time, start_time),
+				duration_minutes = COALESCE(@duration_minutes, duration_minutes),
+				end_time = COALESCE(@end_time, end_time),
+				status = COALESCE(@status, status),
+				notes = COALESCE(@notes, notes),
+				updated_at = now()
+			WHERE id = @id
+			RETURNING *
+		`
+
+	err := pgxscan.Get(ctx, conn, &updatedReservation, query, args)
+
+	if pgxscan.NotFound(err) {
+		log.Println("[API] Could not find reservation with id:", id)
+		return nil, nil
+	}
+
+	if err != nil {
+		log.Println("[API] Error updating reservation:", err)
+		return nil, err
+	}
+
+	return &updatedReservation, nil
 }
 
 func loadTunnelData(ctx context.Context) ([]models.Tunnel, error) {

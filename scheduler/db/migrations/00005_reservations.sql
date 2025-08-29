@@ -20,6 +20,7 @@ CREATE TABLE reservations (
     notes                  text,
 
     created_at             timestamptz NOT NULL DEFAULT now(),
+    updated_at             timestamptz NOT NULL DEFAULT now(),
 
     CHECK (reservation_kind <> 'tunnel' OR (tunnel_id IS NOT NULL AND coach_id IS NULL)),
     CHECK (reservation_kind <> 'lesson' OR (tunnel_id IS NOT NULL AND coach_id IS NOT NULL))

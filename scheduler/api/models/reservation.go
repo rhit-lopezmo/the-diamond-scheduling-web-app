@@ -36,4 +36,20 @@ type Reservation struct {
 	Status            ReservationStatus  `db:"status" json:"status"`
 	Notes             *string            `db:"notes" json:"notes"`
 	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ReservationUpdate struct {
+	Kind              *ReservationKind    `db:"reservation_kind" json:"reservation_kind"`
+	TunnelId          *int32              `db:"tunnel_id" json:"tunnel_id"`
+	CoachId           *pgtype.UUID        `db:"coach_id" json:"coach_id"`
+	CustomerFirstName *string             `db:"customer_first_name" json:"customer_first_name"`
+	CustomerLastName  *string             `db:"customer_last_name" json:"customer_last_name"`
+	CustomerPhone     *string             `db:"customer_phone" json:"customer_phone"`
+	CustomerEmail     *string             `db:"customer_email" json:"customer_email"`
+	StartTime         *pgtype.Timestamptz `db:"start_time" json:"start_time"`
+	Duration          *int32              `db:"duration_minutes" json:"duration_minutes"`
+	EndTime           *pgtype.Timestamptz `db:"end_time" json:"end_time"`
+	Status            *ReservationStatus  `db:"status" json:"status"`
+	Notes             *string             `db:"notes" json:"notes"`
 }

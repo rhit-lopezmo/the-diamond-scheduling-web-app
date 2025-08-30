@@ -1,0 +1,22 @@
+meta {
+  name: coaches (POST)
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{host}}/api/coaches
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "email": "test@co.com",
+    "phone": "1112223333",
+    "is_active": true,
+    "specialties": []
+  }
+}

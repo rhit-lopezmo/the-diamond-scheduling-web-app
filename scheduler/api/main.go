@@ -214,12 +214,11 @@ func setupEndpoints(ginEngine *gin.Engine) {
 
 	ginEngine.PUT("/api/reservations/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		log.Println("[API] Temp log to use id for PUT request. id:", id)
 
 		var reservationUpdates models.ReservationUpdate
 
 		if err := c.BindJSON(&reservationUpdates); err != nil {
-			log.Println("[API] Error binding JSON on PUT method at /api/reservations/:id.", err)
+			log.Println("[API] Error binding JSON on PUT method at /api/reservations/"+id, err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
 			return
 		}
@@ -280,6 +279,185 @@ func setupEndpoints(ginEngine *gin.Engine) {
 
 		c.JSON(http.StatusOK, reservations)
 	})
+
+	ginEngine.GET("/api/coaches", func(c *gin.Context) {
+		coaches, err := loadCoachesData(c.Request.Context())
+		if err != nil {
+			log.Println("[API] Error loading coaches:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.JSON(http.StatusOK, coaches)
+	})
+
+	ginEngine.POST("/api/coaches", func(c *gin.Context) {
+		var coach models.Coach
+
+		if err := c.BindJSON(&coach); err != nil {
+			log.Println("[API] Error binding JSON on POST method at /api/coaches.", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			return
+		}
+
+		// send the data to the db
+		result, err := insertCoachData(c.Request.Context(), coach)
+		if err != nil {
+			log.Println("[API] Error inserting coach:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		c.Header("Location", "/api/reservations/"+coach.Id.String())
+		c.JSON(http.StatusCreated, *result)
+	})
+
+	ginEngine.PUT("/api/coaches/:id", func(c *gin.Context) {
+		id := c.Param("id")
+
+		var coachUpdates models.CoachUpdates
+
+		if err := c.BindJSON(&coachUpdates); err != nil {
+			log.Println("[API] Error binding JSON on PUT method at /api/coaches/"+id, err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+			return
+		}
+
+		coach, err := updateCoachData(c.Request.Context(), id, coachUpdates)
+		if err != nil {
+			log.Println("[API] Error updating coach:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		if coach == nil {
+			log.Println("[API] Cannot update coach because it does not exist with id:", id)
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		c.JSON(http.StatusOK, coach)
+	})
+
+	ginEngine.DELETE("/api/coaches/:id", func(c *gin.Context) {
+		id := c.Param("id")
+
+		cmdTag, err := conn.Exec(
+			c.Request.Context(),
+			"DELETE FROM coaches WHERE id=$1",
+			id,
+		)
+
+		if err != nil {
+			log.Println("[API] Error deleting coach:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		// didn't delete anything
+		if cmdTag.RowsAffected() < 1 {
+			log.Println("[API] Could not find coach to delete with id:", id)
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		log.Println("[API] Successfully deleted coach with id:", id)
+		c.Status(http.StatusNoContent)
+	})
+}
+
+func updateCoachData(ctx context.Context, id string, updates models.CoachUpdates) (*models.Coach, error) {
+	var updatedCoach models.Coach
+
+	// send update to the db
+	args := pgx.NamedArgs{
+		"id":          id,
+		"first_name":  updates.FirstName,
+		"last_name":   updates.LastName,
+		"phone":       updates.Phone,
+		"email":       updates.Email,
+		"is_active":   updates.IsActive,
+		"specialties": updates.Specialties,
+	}
+
+	query := `
+			UPDATE coaches
+			SET
+				first_name = COALESCE(@first_name, first_name),
+				last_name = COALESCE(@last_name, last_name),
+				phone = COALESCE(@phone, phone),
+				email = COALESCE(@email, email),
+				is_active = COALESCE(@is_active, is_active),
+				specialties = COALESCE(@specialties, specialties),
+				updated_at = now()
+			WHERE id = @id
+			RETURNING *
+		`
+
+	err := pgxscan.Get(ctx, conn, &updatedCoach, query, args)
+
+	if pgxscan.NotFound(err) {
+		log.Println("[API] Could not find reservation with id:", id)
+		return nil, nil
+	}
+
+	if err != nil {
+		log.Println("[API] Error updating reservation:", err)
+		return nil, err
+	}
+
+	return &updatedCoach, nil
+}
+
+func insertCoachData(ctx context.Context, c models.Coach) (*models.Coach, error) {
+	args := pgx.NamedArgs{
+		"first_name":  c.FirstName,
+		"last_name":   c.LastName,
+		"phone":       c.Phone,
+		"email":       c.Email,
+		"specialties": c.Specialties,
+	}
+
+	const query = `
+		INSERT INTO coaches (
+			first_name,
+			last_name,
+			phone,
+			email,
+			specialties
+		)
+
+		VALUES (
+			@first_name,
+			@last_name,
+			@phone,
+			@email,
+			@specialties::coach_specialty[]
+		)
+
+		RETURNING *;
+	`
+
+	var out models.Coach
+	if err := pgxscan.Get(ctx, conn, &out, query, args); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+func loadCoachesData(ctx context.Context) ([]models.Coach, error) {
+	coaches := make([]models.Coach, 0)
+
+	query := `SELECT * FROM coaches`
+
+	err := pgxscan.Select(ctx, conn, &coaches, query)
+	if err != nil {
+		log.Println("[API] Error querying database:", err)
+		return nil, err
+	}
+
+	return coaches, nil
 }
 
 func updateReservationData(ctx context.Context, id string, reservation models.ReservationUpdate) (*models.Reservation, error) {

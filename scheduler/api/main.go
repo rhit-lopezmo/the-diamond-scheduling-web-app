@@ -12,7 +12,6 @@ import (
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
@@ -272,7 +271,12 @@ func setupEndpoints(ginEngine *gin.Engine) {
 		toTimeStr := c.Query("to")
 		tunnelIdStr := c.Query("tunnel_id")
 
-		reservations := loadReservationDataWithParams(fromTimeStr, toTimeStr, tunnelIdStr)
+		reservations, err := loadReservationDataWithParams(c.Request.Context(), fromTimeStr, toTimeStr, tunnelIdStr)
+		if err != nil {
+			log.Println("[API] Error loading reservation data:", err)
+			c.Status(http.StatusInternalServerError)
+			return
+		}
 
 		c.JSON(http.StatusOK, reservations)
 	})
@@ -369,29 +373,51 @@ func loadReservationData(ctx context.Context) ([]models.Reservation, error) {
 	return reservations, nil
 }
 
-func loadReservationDataWithParams(fromTime, toTime, tunnelId string) []models.Reservation {
+func loadReservationDataWithParams(ctx context.Context, fromTime, toTime, tunnelId string) ([]models.Reservation, error) {
 	// create empty slice so it doesn't respond with nil
 	reservations := make([]models.Reservation, 0)
 
-	if tunnelId == "3" {
-		var tunnelIdNum int32 = 3
-
-		reservations = append(
-			reservations,
-			models.Reservation{
-				Id:        pgtype.UUID{},
-				TunnelId:  &tunnelIdNum,
-				StartTime: pgtype.Timestamptz{},
-				EndTime:   pgtype.Timestamptz{},
-				Notes:     nil,
-			},
-		)
-
-		return reservations
+	args := pgx.NamedArgs{
+		"from_time": fromTime,
+		"to_time":   toTime,
+		"tunnel_id": tunnelId,
 	}
 
-	log.Println("[API] Found no matching reservations, returning nothing...")
-	return reservations
+	var query string
+	if tunnelId == "" {
+		query = `
+			SELECT * FROM reservations
+			WHERE start_time >= @from_time::timestamptz AND start_time < @to_time::timestamptz
+			ORDER BY start_time ASC
+		`
+	} else {
+		query = `
+			SELECT * FROM reservations
+			WHERE tunnel_id = @tunnel_id::int 
+				AND start_time >= @from_time::timestamptz
+				AND start_time < @to_time::timestamptz
+			ORDER BY start_time ASC
+		`
+	}
+
+	err := pgxscan.Select(ctx, conn, &reservations, query, args)
+	if err != nil {
+		log.Println("[API] Error querying database:", err)
+		return nil, err
+	}
+
+	if len(reservations) == 0 {
+		log.Println("[API] No reservations found that matched the search params -",
+			"fromTime:",
+			fromTime,
+			"toTime:",
+			toTime,
+			"tunnelId:",
+			tunnelId,
+		)
+	}
+
+	return reservations, nil
 }
 
 func loadReservationById(ctx context.Context, id string) (*models.Reservation, error) {

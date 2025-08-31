@@ -5,11 +5,10 @@ import (
 	"log"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
-	"github.com/jackc/pgx/v5"
 	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
 )
 
-func LoadTunnelData(ctx context.Context, conn *pgx.Conn) ([]models.Tunnel, error) {
+func LoadTunnelData(ctx context.Context, conn IDBConn) ([]models.Tunnel, error) {
 	var tunnels []models.Tunnel
 
 	err := pgxscan.Select(

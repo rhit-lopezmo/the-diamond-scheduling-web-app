@@ -9,7 +9,7 @@ import (
 	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
 )
 
-func InsertReservationData(ctx context.Context, conn *pgx.Conn, r models.Reservation) (*models.Reservation, error) {
+func InsertReservationData(ctx context.Context, conn IDBConn, r models.Reservation) (*models.Reservation, error) {
 	args := pgx.NamedArgs{
 		"reservation_kind":    r.Kind,
 		"tunnel_id":           r.TunnelId,
@@ -67,7 +67,7 @@ func InsertReservationData(ctx context.Context, conn *pgx.Conn, r models.Reserva
 	return &out, nil
 }
 
-func UpdateReservationData(ctx context.Context, conn *pgx.Conn, id string, reservation models.ReservationUpdate) (*models.Reservation, error) {
+func UpdateReservationData(ctx context.Context, conn IDBConn, id string, reservation models.ReservationUpdate) (*models.Reservation, error) {
 	var updatedReservation models.Reservation
 	
 	// send update to the db
@@ -122,7 +122,7 @@ func UpdateReservationData(ctx context.Context, conn *pgx.Conn, id string, reser
 	return &updatedReservation, nil
 }
 
-func LoadReservationData(ctx context.Context, conn *pgx.Conn) ([]models.Reservation, error) {
+func LoadReservationData(ctx context.Context, conn IDBConn) ([]models.Reservation, error) {
 	reservations := make([]models.Reservation, 0)
 	
 	err := pgxscan.Select(
@@ -140,7 +140,7 @@ func LoadReservationData(ctx context.Context, conn *pgx.Conn) ([]models.Reservat
 	return reservations, nil
 }
 
-func LoadReservationDataWithParams(ctx context.Context, conn *pgx.Conn, fromTime, toTime, tunnelId string) ([]models.Reservation, error) {
+func LoadReservationDataWithParams(ctx context.Context, conn IDBConn, fromTime, toTime, tunnelId string) ([]models.Reservation, error) {
 	// create empty slice so it doesn't respond with nil
 	reservations := make([]models.Reservation, 0)
 	
@@ -187,7 +187,7 @@ func LoadReservationDataWithParams(ctx context.Context, conn *pgx.Conn, fromTime
 	return reservations, nil
 }
 
-func LoadReservationById(ctx context.Context, conn *pgx.Conn, id string) (*models.Reservation, error) {
+func LoadReservationById(ctx context.Context, conn IDBConn, id string) (*models.Reservation, error) {
 	var reservation models.Reservation
 	
 	query := `SELECT * FROM reservations WHERE id=$1`
@@ -211,7 +211,7 @@ func LoadReservationById(ctx context.Context, conn *pgx.Conn, id string) (*model
 	return &reservation, nil
 }
 
-func DeleteReservationData(ctx context.Context, conn *pgx.Conn, id string) (int64, error) {
+func DeleteReservationData(ctx context.Context, conn IDBConn, id string) (int64, error) {
 	cmdTag, err := conn.Exec(
 		ctx,
 		"DELETE FROM reservations WHERE id=$1",

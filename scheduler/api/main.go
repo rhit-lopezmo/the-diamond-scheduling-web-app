@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 	
-	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -243,11 +242,7 @@ func setupEndpoints(ginEngine *gin.Engine) {
 	ginEngine.DELETE("/api/reservations/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		
-		cmdTag, err := conn.Exec(
-			c.Request.Context(),
-			"DELETE FROM reservations WHERE id=$1",
-			id,
-		)
+		rowsAffected, err := dbUtils.DeleteReservationData(c.Request.Context(), conn, id)
 		
 		if err != nil {
 			log.Println("[API] Error deleting reservation:", err)
@@ -256,7 +251,7 @@ func setupEndpoints(ginEngine *gin.Engine) {
 		}
 		
 		// didn't delete anything
-		if cmdTag.RowsAffected() < 1 {
+		if rowsAffected < 1 {
 			log.Println("[API] Could not find reservation to delete with id:", id)
 			c.Status(http.StatusNotFound)
 			return
@@ -343,11 +338,7 @@ func setupEndpoints(ginEngine *gin.Engine) {
 	ginEngine.DELETE("/api/coaches/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		
-		cmdTag, err := conn.Exec(
-			c.Request.Context(),
-			"DELETE FROM coaches WHERE id=$1",
-			id,
-		)
+		rowsAffected, err := dbUtils.DeleteCoachData(c.Request.Context(), conn, id)
 		
 		if err != nil {
 			log.Println("[API] Error deleting coach:", err)
@@ -356,7 +347,7 @@ func setupEndpoints(ginEngine *gin.Engine) {
 		}
 		
 		// didn't delete anything
-		if cmdTag.RowsAffected() < 1 {
+		if rowsAffected < 1 {
 			log.Println("[API] Could not find coach to delete with id:", id)
 			c.Status(http.StatusNotFound)
 			return

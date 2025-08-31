@@ -102,3 +102,18 @@ func InsertCoachData(ctx context.Context, conn *pgx.Conn, c models.Coach) (*mode
 
 	return &out, nil
 }
+
+func DeleteCoachData(ctx context.Context, conn *pgx.Conn, id string) (int64, error) {
+	cmdTag, err := conn.Exec(
+		ctx,
+		"DELETE FROM coaches WHERE id=$1",
+		id,
+	)
+
+	if err != nil {
+		log.Println("[API] Error deleting coach:", err)
+		return 0, err
+	}
+
+	return cmdTag.RowsAffected(), err
+}

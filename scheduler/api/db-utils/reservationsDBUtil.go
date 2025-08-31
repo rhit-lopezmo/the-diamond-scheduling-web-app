@@ -210,3 +210,18 @@ func LoadReservationById(ctx context.Context, conn *pgx.Conn, id string) (*model
 	
 	return &reservation, nil
 }
+
+func DeleteReservationData(ctx context.Context, conn *pgx.Conn, id string) (int64, error) {
+	cmdTag, err := conn.Exec(
+		ctx,
+		"DELETE FROM reservations WHERE id=$1",
+		id,
+	)
+	
+	if err != nil {
+		log.Println("[API] Error deleting reservation:", err)
+		return 0, err
+	}
+	
+	return cmdTag.RowsAffected(), err
+}

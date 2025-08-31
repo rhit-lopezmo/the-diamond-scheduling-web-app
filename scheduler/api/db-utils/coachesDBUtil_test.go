@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pashagolub/pgxmock/v4"
+	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
 )
 
 func Test_LoadCoachesData(t *testing.T) {
@@ -53,6 +54,130 @@ func Test_LoadCoachesData_Error(t *testing.T) {
 
 	// exercise
 	_, err := LoadCoachesData(context.Background(), mockConn)
+
+	// verify
+	if err == nil {
+		t.Fatal("expected error, got none")
+	}
+}
+
+func Test_InsertCoachData(t *testing.T) {
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+
+	query := `
+		INSERT INTO coaches (
+			first_name,
+			last_name,
+			phone,
+			email,
+			specialties
+		)
+
+		VALUES (
+			@first_name,
+			@last_name,
+			@phone,
+			@email,
+			@specialties::coach_specialty[]
+		)
+
+		RETURNING *;
+	`
+	u := uuid.New()
+	pgU := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
+
+	testCoach := models.Coach{
+		Id:          pgU,
+		FirstName:   "John",
+		LastName:    "Doe",
+		Email:       nil,
+		Phone:       "1112223333",
+		Specialties: []string{models.SpecialtyHitting},
+	}
+
+	rows := pgxmock.NewRows([]string{"id", "first_name", "last_name", "email", "phone", "specialties"}).
+		AddRow(
+			testCoach.Id,
+			testCoach.FirstName,
+			testCoach.LastName,
+			testCoach.Email,
+			testCoach.Phone,
+			testCoach.Specialties,
+		)
+
+	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(
+		testCoach.FirstName,
+		testCoach.LastName,
+		testCoach.Phone,
+		testCoach.Email,
+		testCoach.Specialties,
+	).WillReturnRows(rows)
+
+	// exercise
+	result, err := InsertCoachData(context.Background(), mockConn, testCoach)
+
+	// verify
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected result, got none")
+	}
+
+	if result.Id != testCoach.Id {
+		t.Fatal("expected id ", testCoach.Id, "got", result.Id)
+	}
+}
+
+func Test_InsertCoachData_Error(t *testing.T) {
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+
+	query := `
+		INSERT INTO coaches (
+			first_name,
+			last_name,
+			phone,
+			email,
+			specialties
+		)
+
+		VALUES (
+			@first_name,
+			@last_name,
+			@phone,
+			@email,
+			@specialties::coach_specialty[]
+		)
+
+		RETURNING *;
+	`
+	u := uuid.New()
+	pgU := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
+
+	testCoach := models.Coach{
+		Id:          pgU,
+		FirstName:   "John",
+		LastName:    "Doe",
+		Email:       nil,
+		Phone:       "1112223333",
+		Specialties: []string{models.SpecialtyHitting},
+	}
+
+	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(
+		testCoach.FirstName,
+		testCoach.LastName,
+		testCoach.Phone,
+		testCoach.Email,
+		testCoach.Specialties,
+	).WillReturnError(errors.New("test error"))
+
+	// exercise
+	_, err := InsertCoachData(context.Background(), mockConn, testCoach)
 
 	// verify
 	if err == nil {

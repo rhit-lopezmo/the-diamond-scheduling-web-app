@@ -23,6 +23,43 @@ func LoadCoachesData(ctx context.Context, conn IDBConn) ([]models.Coach, error) 
 	return coaches, nil
 }
 
+func InsertCoachData(ctx context.Context, conn IDBConn, c models.Coach) (*models.Coach, error) {
+	args := pgx.NamedArgs{
+		"first_name":  c.FirstName,
+		"last_name":   c.LastName,
+		"phone":       c.Phone,
+		"email":       c.Email,
+		"specialties": c.Specialties,
+	}
+
+	const query = `
+		INSERT INTO coaches (
+			first_name,
+			last_name,
+			phone,
+			email,
+			specialties
+		)
+
+		VALUES (
+			@first_name,
+			@last_name,
+			@phone,
+			@email,
+			@specialties::coach_specialty[]
+		)
+
+		RETURNING *;
+	`
+
+	var out models.Coach
+	if err := pgxscan.Get(ctx, conn, &out, query, args); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 func UpdateCoachData(ctx context.Context, conn IDBConn, id string, updates models.CoachUpdates) (*models.Coach, error) {
 	var updatedCoach models.Coach
 
@@ -64,43 +101,6 @@ func UpdateCoachData(ctx context.Context, conn IDBConn, id string, updates model
 	}
 
 	return &updatedCoach, nil
-}
-
-func InsertCoachData(ctx context.Context, conn IDBConn, c models.Coach) (*models.Coach, error) {
-	args := pgx.NamedArgs{
-		"first_name":  c.FirstName,
-		"last_name":   c.LastName,
-		"phone":       c.Phone,
-		"email":       c.Email,
-		"specialties": c.Specialties,
-	}
-
-	const query = `
-		INSERT INTO coaches (
-			first_name,
-			last_name,
-			phone,
-			email,
-			specialties
-		)
-
-		VALUES (
-			@first_name,
-			@last_name,
-			@phone,
-			@email,
-			@specialties::coach_specialty[]
-		)
-
-		RETURNING *;
-	`
-
-	var out models.Coach
-	if err := pgxscan.Get(ctx, conn, &out, query, args); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
 }
 
 func DeleteCoachData(ctx context.Context, conn IDBConn, id string) (int64, error) {

@@ -3,7 +3,7 @@ package db_utils
 import (
 	"context"
 	"log"
-	
+
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
 	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
@@ -11,21 +11,21 @@ import (
 
 func LoadCoachesData(ctx context.Context, conn IDBConn) ([]models.Coach, error) {
 	coaches := make([]models.Coach, 0)
-	
+
 	query := `SELECT * FROM coaches`
-	
+
 	err := pgxscan.Select(ctx, conn, &coaches, query)
 	if err != nil {
 		log.Println("[API] Error querying database:", err)
 		return nil, err
 	}
-	
+
 	return coaches, nil
 }
 
 func UpdateCoachData(ctx context.Context, conn IDBConn, id string, updates models.CoachUpdates) (*models.Coach, error) {
 	var updatedCoach models.Coach
-	
+
 	// send update to the db
 	args := pgx.NamedArgs{
 		"id":          id,
@@ -36,7 +36,7 @@ func UpdateCoachData(ctx context.Context, conn IDBConn, id string, updates model
 		"is_active":   updates.IsActive,
 		"specialties": updates.Specialties,
 	}
-	
+
 	query := `
 			UPDATE coaches
 			SET
@@ -50,19 +50,19 @@ func UpdateCoachData(ctx context.Context, conn IDBConn, id string, updates model
 			WHERE id = @id
 			RETURNING *
 		`
-	
+
 	err := pgxscan.Get(ctx, conn, &updatedCoach, query, args)
-	
+
 	if pgxscan.NotFound(err) {
 		log.Println("[API] Could not find reservation with id:", id)
 		return nil, nil
 	}
-	
+
 	if err != nil {
 		log.Println("[API] Error updating reservation:", err)
 		return nil, err
 	}
-	
+
 	return &updatedCoach, nil
 }
 
@@ -74,7 +74,7 @@ func InsertCoachData(ctx context.Context, conn IDBConn, c models.Coach) (*models
 		"email":       c.Email,
 		"specialties": c.Specialties,
 	}
-	
+
 	const query = `
 		INSERT INTO coaches (
 			first_name,
@@ -94,12 +94,12 @@ func InsertCoachData(ctx context.Context, conn IDBConn, c models.Coach) (*models
 
 		RETURNING *;
 	`
-	
+
 	var out models.Coach
 	if err := pgxscan.Get(ctx, conn, &out, query, args); err != nil {
 		return nil, err
 	}
-	
+
 	return &out, nil
 }
 
@@ -109,11 +109,11 @@ func DeleteCoachData(ctx context.Context, conn IDBConn, id string) (int64, error
 		"DELETE FROM coaches WHERE id=$1",
 		id,
 	)
-	
+
 	if err != nil {
 		log.Println("[API] Error deleting coach:", err)
 		return 0, err
 	}
-	
+
 	return cmdTag.RowsAffected(), err
 }

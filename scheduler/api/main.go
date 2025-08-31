@@ -121,239 +121,263 @@ func main() {
 }
 
 func setupEndpoints(ginEngine *gin.Engine) {
-	ginEngine.GET("/healthcheck", func(c *gin.Context) {
-		// ping DB to ensure it's up
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		
-		if err := conn.Ping(ctx); err != nil {
-			// ping failed
-			c.JSON(
-				http.StatusServiceUnavailable,
-				gin.H{
-					"status": "unhealthy",
-					"db":     "down",
-				},
-			)
-			return
-		}
-		
-		// ping success
+	ginEngine.GET("/healthcheck", healthcheck)
+	
+	ginEngine.GET("/api/tunnels", getTunnels)
+	
+	ginEngine.GET("/api/reservations", getReservations)
+	
+	ginEngine.POST("/api/reservations", createReservation)
+	
+	ginEngine.GET("/api/reservations/:id", getReservationById)
+	
+	ginEngine.PUT("/api/reservations/:id", updateReservationById)
+	
+	ginEngine.DELETE("/api/reservations/:id", deleteReservationById)
+	
+	ginEngine.GET("/api/reservations/search", searchReservations)
+	
+	ginEngine.GET("/api/coaches", getCoaches)
+	
+	ginEngine.POST("/api/coaches", createCoach)
+	
+	ginEngine.PUT("/api/coaches/:id", updateCoachById)
+	
+	ginEngine.DELETE("/api/coaches/:id", deleteCoachById)
+}
+
+func healthcheck(c *gin.Context) {
+	// ping DB to ensure it's up
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	
+	if err := conn.Ping(ctx); err != nil {
+		// ping failed
 		c.JSON(
-			http.StatusOK,
+			http.StatusServiceUnavailable,
 			gin.H{
-				"status": "healthy",
-				"db":     "up",
+				"status": "unhealthy",
+				"db":     "down",
 			},
 		)
-	})
+		return
+	}
 	
-	ginEngine.GET("/api/tunnels", func(c *gin.Context) {
-		tunnels, err := dbUtils.LoadTunnelData(c.Request.Context(), conn)
-		
-		if err != nil {
-			log.Println("[API] Error loading tunnel data:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		c.JSON(http.StatusOK, tunnels)
-	})
+	// ping success
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"status": "healthy",
+			"db":     "up",
+		},
+	)
+}
+
+func getTunnels(c *gin.Context) {
+	tunnels, err := dbUtils.LoadTunnelData(c.Request.Context(), conn)
 	
-	ginEngine.GET("/api/reservations", func(c *gin.Context) {
-		reservations, err := dbUtils.LoadReservationData(c.Request.Context(), conn)
-		
-		if err != nil {
-			log.Println("[API] Error loading reservation data:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		c.JSON(http.StatusOK, reservations)
-	})
+	if err != nil {
+		log.Println("[API] Error loading tunnel data:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	
-	ginEngine.POST("/api/reservations", func(c *gin.Context) {
-		var reservation models.Reservation
-		
-		if err := c.BindJSON(&reservation); err != nil {
-			log.Println("[API] Error binding JSON on POST method at /api/reservations.", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
-			return
-		}
-		
-		// send the data to the db
-		result, err := dbUtils.InsertReservationData(c.Request.Context(), conn, reservation)
-		if err != nil {
-			log.Println("[API] Error inserting reservation:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		c.Header("Location", "/api/reservations/"+result.Id.String())
-		c.JSON(http.StatusCreated, *result)
-	})
+	c.JSON(http.StatusOK, tunnels)
+}
+
+func getReservations(c *gin.Context) {
+	reservations, err := dbUtils.LoadReservationData(c.Request.Context(), conn)
 	
-	ginEngine.GET("/api/reservations/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		
-		reservation, err := dbUtils.LoadReservationById(c.Request.Context(), conn, id)
-		if err != nil {
-			log.Println("[API] Error loading reservation:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		if reservation == nil {
-			log.Println("[API] Could not find reservation with id:", id)
-			c.Status(http.StatusNotFound)
-			return
-		}
-		
-		c.JSON(http.StatusOK, *reservation)
-	})
+	if err != nil {
+		log.Println("[API] Error loading reservation data:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	
-	ginEngine.PUT("/api/reservations/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		
-		var reservationUpdates models.ReservationUpdate
-		
-		if err := c.BindJSON(&reservationUpdates); err != nil {
-			log.Println("[API] Error binding JSON on PUT method at /api/reservations/"+id, err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
-			return
-		}
-		
-		reservation, err := dbUtils.UpdateReservationData(c.Request.Context(), conn, id, reservationUpdates)
-		if err != nil {
-			log.Println("[API] Error updating reservation:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		if reservation == nil {
-			log.Println("[API] Cannot update reservation because it does not exist with id:", id)
-			c.Status(http.StatusNotFound)
-			return
-		}
-		
-		c.JSON(http.StatusOK, reservation)
-	})
+	c.JSON(http.StatusOK, reservations)
+}
+
+func createReservation(c *gin.Context) {
+	var reservation models.Reservation
 	
-	ginEngine.DELETE("/api/reservations/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		
-		rowsAffected, err := dbUtils.DeleteReservationData(c.Request.Context(), conn, id)
-		
-		if err != nil {
-			log.Println("[API] Error deleting reservation:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		// didn't delete anything
-		if rowsAffected < 1 {
-			log.Println("[API] Could not find reservation to delete with id:", id)
-			c.Status(http.StatusNotFound)
-			return
-		}
-		
-		log.Println("[API] Successfully deleted reservation with id:", id)
-		c.Status(http.StatusNoContent)
-	})
+	if err := c.BindJSON(&reservation); err != nil {
+		log.Println("[API] Error binding JSON on POST method at /api/reservations.", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+		return
+	}
 	
-	ginEngine.GET("/api/reservations/search", func(c *gin.Context) {
-		fromTimeStr := c.Query("from")
-		toTimeStr := c.Query("to")
-		tunnelIdStr := c.Query("tunnel_id")
-		
-		reservations, err := dbUtils.LoadReservationDataWithParams(c.Request.Context(), conn, fromTimeStr, toTimeStr, tunnelIdStr)
-		if err != nil {
-			log.Println("[API] Error loading reservation data:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		c.JSON(http.StatusOK, reservations)
-	})
+	// send the data to the db
+	result, err := dbUtils.InsertReservationData(c.Request.Context(), conn, reservation)
+	if err != nil {
+		log.Println("[API] Error inserting reservation:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	
-	ginEngine.GET("/api/coaches", func(c *gin.Context) {
-		coaches, err := dbUtils.LoadCoachesData(c.Request.Context(), conn)
-		if err != nil {
-			log.Println("[API] Error loading coaches:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		c.JSON(http.StatusOK, coaches)
-	})
+	c.Header("Location", "/api/reservations/"+result.Id.String())
+	c.JSON(http.StatusCreated, *result)
+}
+
+func getReservationById(c *gin.Context) {
+	id := c.Param("id")
 	
-	ginEngine.POST("/api/coaches", func(c *gin.Context) {
-		var coach models.Coach
-		
-		if err := c.BindJSON(&coach); err != nil {
-			log.Println("[API] Error binding JSON on POST method at /api/coaches.", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
-			return
-		}
-		
-		// send the data to the db
-		result, err := dbUtils.InsertCoachData(c.Request.Context(), conn, coach)
-		if err != nil {
-			log.Println("[API] Error inserting coach:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		c.Header("Location", "/api/reservations/"+coach.Id.String())
-		c.JSON(http.StatusCreated, *result)
-	})
+	reservation, err := dbUtils.LoadReservationById(c.Request.Context(), conn, id)
+	if err != nil {
+		log.Println("[API] Error loading reservation:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	
-	ginEngine.PUT("/api/coaches/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		
-		var coachUpdates models.CoachUpdates
-		
-		if err := c.BindJSON(&coachUpdates); err != nil {
-			log.Println("[API] Error binding JSON on PUT method at /api/coaches/"+id, err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
-			return
-		}
-		
-		coach, err := dbUtils.UpdateCoachData(c.Request.Context(), conn, id, coachUpdates)
-		if err != nil {
-			log.Println("[API] Error updating coach:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		if coach == nil {
-			log.Println("[API] Cannot update coach because it does not exist with id:", id)
-			c.Status(http.StatusNotFound)
-			return
-		}
-		
-		c.JSON(http.StatusOK, coach)
-	})
+	if reservation == nil {
+		log.Println("[API] Could not find reservation with id:", id)
+		c.Status(http.StatusNotFound)
+		return
+	}
 	
-	ginEngine.DELETE("/api/coaches/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		
-		rowsAffected, err := dbUtils.DeleteCoachData(c.Request.Context(), conn, id)
-		
-		if err != nil {
-			log.Println("[API] Error deleting coach:", err)
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		
-		// didn't delete anything
-		if rowsAffected < 1 {
-			log.Println("[API] Could not find coach to delete with id:", id)
-			c.Status(http.StatusNotFound)
-			return
-		}
-		
-		log.Println("[API] Successfully deleted coach with id:", id)
-		c.Status(http.StatusNoContent)
-	})
+	c.JSON(http.StatusOK, *reservation)
+}
+
+func updateReservationById(c *gin.Context) {
+	id := c.Param("id")
+	
+	var reservationUpdates models.ReservationUpdate
+	
+	if err := c.BindJSON(&reservationUpdates); err != nil {
+		log.Println("[API] Error binding JSON on PUT method at /api/reservations/"+id, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+		return
+	}
+	
+	reservation, err := dbUtils.UpdateReservationData(c.Request.Context(), conn, id, reservationUpdates)
+	if err != nil {
+		log.Println("[API] Error updating reservation:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	
+	if reservation == nil {
+		log.Println("[API] Cannot update reservation because it does not exist with id:", id)
+		c.Status(http.StatusNotFound)
+		return
+	}
+	
+	c.JSON(http.StatusOK, reservation)
+}
+
+func deleteReservationById(c *gin.Context) {
+	id := c.Param("id")
+	
+	rowsAffected, err := dbUtils.DeleteReservationData(c.Request.Context(), conn, id)
+	
+	if err != nil {
+		log.Println("[API] Error deleting reservation:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	
+	// didn't delete anything
+	if rowsAffected < 1 {
+		log.Println("[API] Could not find reservation to delete with id:", id)
+		c.Status(http.StatusNotFound)
+		return
+	}
+	
+	log.Println("[API] Successfully deleted reservation with id:", id)
+	c.Status(http.StatusNoContent)
+}
+
+func searchReservations(c *gin.Context) {
+	fromTimeStr := c.Query("from")
+	toTimeStr := c.Query("to")
+	tunnelIdStr := c.Query("tunnel_id")
+	
+	reservations, err := dbUtils.LoadReservationDataWithParams(c.Request.Context(), conn, fromTimeStr, toTimeStr, tunnelIdStr)
+	if err != nil {
+		log.Println("[API] Error loading reservation data:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	
+	c.JSON(http.StatusOK, reservations)
+}
+
+func getCoaches(c *gin.Context) {
+	coaches, err := dbUtils.LoadCoachesData(c.Request.Context(), conn)
+	if err != nil {
+		log.Println("[API] Error loading coaches:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	
+	c.JSON(http.StatusOK, coaches)
+}
+
+func createCoach(c *gin.Context) {
+	var coach models.Coach
+	
+	if err := c.BindJSON(&coach); err != nil {
+		log.Println("[API] Error binding JSON on POST method at /api/coaches.", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+		return
+	}
+	
+	// send the data to the db
+	result, err := dbUtils.InsertCoachData(c.Request.Context(), conn, coach)
+	if err != nil {
+		log.Println("[API] Error inserting coach:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	
+	c.Header("Location", "/api/reservations/"+coach.Id.String())
+	c.JSON(http.StatusCreated, *result)
+}
+
+func updateCoachById(c *gin.Context) {
+	id := c.Param("id")
+	
+	var coachUpdates models.CoachUpdates
+	
+	if err := c.BindJSON(&coachUpdates); err != nil {
+		log.Println("[API] Error binding JSON on PUT method at /api/coaches/"+id, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "message": err.Error()})
+		return
+	}
+	
+	coach, err := dbUtils.UpdateCoachData(c.Request.Context(), conn, id, coachUpdates)
+	if err != nil {
+		log.Println("[API] Error updating coach:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	
+	if coach == nil {
+		log.Println("[API] Cannot update coach because it does not exist with id:", id)
+		c.Status(http.StatusNotFound)
+		return
+	}
+	
+	c.JSON(http.StatusOK, coach)
+}
+
+func deleteCoachById(c *gin.Context) {
+	id := c.Param("id")
+	
+	rowsAffected, err := dbUtils.DeleteCoachData(c.Request.Context(), conn, id)
+	
+	if err != nil {
+		log.Println("[API] Error deleting coach:", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	
+	// didn't delete anything
+	if rowsAffected < 1 {
+		log.Println("[API] Could not find coach to delete with id:", id)
+		c.Status(http.StatusNotFound)
+		return
+	}
+	
+	log.Println("[API] Successfully deleted coach with id:", id)
+	c.Status(http.StatusNoContent)
 }

@@ -3,7 +3,7 @@ package db_utils
 import (
 	"context"
 	"log"
-
+	
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
 	"github.com/rhit-lopezmo/the-diamond-scheduling-web-app/api/models"
@@ -24,7 +24,7 @@ func InsertReservationData(ctx context.Context, conn IDBConn, r models.Reservati
 		"status":              r.Status,
 		"notes":               r.Notes,
 	}
-
+	
 	const query = `
 		INSERT INTO reservations (
 			reservation_kind,
@@ -58,18 +58,18 @@ func InsertReservationData(ctx context.Context, conn IDBConn, r models.Reservati
 
 		RETURNING *;
 	`
-
+	
 	var out models.Reservation
 	if err := pgxscan.Get(ctx, conn, &out, query, args); err != nil {
 		return nil, err
 	}
-
+	
 	return &out, nil
 }
 
-func UpdateReservationData(ctx context.Context, conn IDBConn, id string, reservation models.ReservationUpdate) (*models.Reservation, error) {
+func UpdateReservationData(ctx context.Context, conn IDBConn, id string, reservation models.ReservationUpdates) (*models.Reservation, error) {
 	var updatedReservation models.Reservation
-
+	
 	// send update to the db
 	args := pgx.NamedArgs{
 		"id":                  id,
@@ -86,7 +86,7 @@ func UpdateReservationData(ctx context.Context, conn IDBConn, id string, reserva
 		"status":              reservation.Status,
 		"notes":               reservation.Notes,
 	}
-
+	
 	query := `
 			UPDATE reservations
 			SET
@@ -106,50 +106,50 @@ func UpdateReservationData(ctx context.Context, conn IDBConn, id string, reserva
 			WHERE id = @id
 			RETURNING *
 		`
-
+	
 	err := pgxscan.Get(ctx, conn, &updatedReservation, query, args)
-
+	
 	if pgxscan.NotFound(err) {
 		log.Println("[API] Could not find reservation with id:", id)
 		return nil, nil
 	}
-
+	
 	if err != nil {
 		log.Println("[API] Error updating reservation:", err)
 		return nil, err
 	}
-
+	
 	return &updatedReservation, nil
 }
 
 func LoadReservationData(ctx context.Context, conn IDBConn) ([]models.Reservation, error) {
 	reservations := make([]models.Reservation, 0)
-
+	
 	err := pgxscan.Select(
 		ctx,
 		conn,
 		&reservations,
 		`SELECT * FROM reservations`,
 	)
-
+	
 	if err != nil {
 		log.Println("[API] Error querying database:", err)
 		return nil, err
 	}
-
+	
 	return reservations, nil
 }
 
 func LoadReservationDataWithParams(ctx context.Context, conn IDBConn, fromTime, toTime, tunnelId string) ([]models.Reservation, error) {
 	// create empty slice so it doesn't respond with nil
 	reservations := make([]models.Reservation, 0)
-
+	
 	args := pgx.NamedArgs{
 		"from_time": fromTime,
 		"to_time":   toTime,
 		"tunnel_id": tunnelId,
 	}
-
+	
 	var query string
 	if tunnelId == "" {
 		query = `
@@ -166,13 +166,13 @@ func LoadReservationDataWithParams(ctx context.Context, conn IDBConn, fromTime, 
 			ORDER BY start_time ASC
 		`
 	}
-
+	
 	err := pgxscan.Select(ctx, conn, &reservations, query, args)
 	if err != nil {
 		log.Println("[API] Error querying database:", err)
 		return nil, err
 	}
-
+	
 	if len(reservations) == 0 {
 		log.Println("[API] No reservations found that matched the search params -",
 			"fromTime:",
@@ -183,15 +183,15 @@ func LoadReservationDataWithParams(ctx context.Context, conn IDBConn, fromTime, 
 			tunnelId,
 		)
 	}
-
+	
 	return reservations, nil
 }
 
 func LoadReservationById(ctx context.Context, conn IDBConn, id string) (*models.Reservation, error) {
 	var reservation models.Reservation
-
+	
 	query := `SELECT * FROM reservations WHERE id=$1`
-
+	
 	err := pgxscan.Get(
 		ctx,
 		conn,
@@ -199,7 +199,7 @@ func LoadReservationById(ctx context.Context, conn IDBConn, id string) (*models.
 		query,
 		id,
 	)
-
+	
 	if pgxscan.NotFound(err) {
 		log.Println("[API] No rows found while querying reservations")
 		return nil, nil
@@ -207,7 +207,7 @@ func LoadReservationById(ctx context.Context, conn IDBConn, id string) (*models.
 		log.Println("[API] Error querying database:", err)
 		return nil, err
 	}
-
+	
 	return &reservation, nil
 }
 
@@ -217,11 +217,11 @@ func DeleteReservationData(ctx context.Context, conn IDBConn, id string) (int64,
 		"DELETE FROM reservations WHERE id=$1",
 		id,
 	)
-
+	
 	if err != nil {
 		log.Println("[API] Error deleting reservation:", err)
 		return 0, err
 	}
-
+	
 	return cmdTag.RowsAffected(), err
 }

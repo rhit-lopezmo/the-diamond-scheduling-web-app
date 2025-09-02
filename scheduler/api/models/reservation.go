@@ -39,7 +39,7 @@ type Reservation struct {
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type ReservationUpdate struct {
+type ReservationUpdates struct {
 	Kind              *ReservationKind    `db:"reservation_kind" json:"reservation_kind"`
 	TunnelId          *int32              `db:"tunnel_id" json:"tunnel_id"`
 	CoachId           *pgtype.UUID        `db:"coach_id" json:"coach_id"`

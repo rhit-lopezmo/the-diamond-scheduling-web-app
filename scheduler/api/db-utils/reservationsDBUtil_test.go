@@ -5,7 +5,8 @@ import (
 	"errors"
 	"regexp"
 	"testing"
-
+	"time"
+	
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -17,30 +18,30 @@ func Test_LoadReservationsData(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	u1 := uuid.New()
 	u2 := uuid.New()
 	pgU1 := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
 	pgU2 := pgtype.UUID{Bytes: [16]byte(u2), Valid: true}
-
+	
 	rows := pgxmock.NewRows([]string{"id", "customer_first_name", "customer_last_name"}).
 		AddRow(pgU1, "John", "Doe").
 		AddRow(pgU2, "Jane", "Doe")
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM reservations`)).WillReturnRows(rows)
-
+	
 	// exercise
 	result, err := LoadReservationData(context.Background(), mockConn)
-
+	
 	// verify
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-
+	
 	if len(result) != 2 {
 		t.Fatal("expected 2 rows, got", len(result))
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -50,21 +51,21 @@ func Test_LoadReservationsData_Error(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM reservations`)).WillReturnError(errors.New("test error"))
-
+	
 	// exercise
 	result, err := LoadReservationData(context.Background(), mockConn)
-
+	
 	// verify
 	if err == nil {
 		t.Fatal("expected error, got none")
 	}
-
+	
 	if result != nil {
 		t.Fatal("expected no result, got", result)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -74,33 +75,33 @@ func Test_LoadReservationsDataById(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	u1 := uuid.New()
 	pgU1 := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
-
+	
 	rows := pgxmock.NewRows([]string{"id", "customer_first_name", "customer_last_name"}).
 		AddRow(pgU1, "John", "Doe")
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM reservations WHERE id=$1`)).
 		WithArgs(pgU1.String()).
 		WillReturnRows(rows)
-
+	
 	// exercise
 	result, err := LoadReservationById(context.Background(), mockConn, pgU1.String())
-
+	
 	// verify
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-
+	
 	if result == nil {
 		t.Fatal("expected result, got none")
 	}
-
+	
 	if result.Id != pgU1 {
 		t.Fatal("expected", pgU1, "got", result.Id)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -110,26 +111,26 @@ func Test_LoadReservationsDataById_NotFound(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	u1 := uuid.New()
 	pgU1 := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM reservations WHERE id=$1`)).
 		WithArgs(pgU1.String()).
 		WillReturnError(pgx.ErrNoRows)
-
+	
 	// exercise
 	result, err := LoadReservationById(context.Background(), mockConn, pgU1.String())
-
+	
 	// verify
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-
+	
 	if result != nil {
 		t.Fatal("expected no result, got", result)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -139,44 +140,212 @@ func Test_LoadReservationsDataById_Error(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	u1 := uuid.New()
 	pgU1 := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM reservations WHERE id=$1`)).
 		WithArgs(pgU1.String()).
 		WillReturnError(errors.New("test error"))
-
+	
 	// exercise
 	result, err := LoadReservationById(context.Background(), mockConn, pgU1.String())
-
+	
 	// verify
 	if err == nil {
 		t.Fatal("expected error, got none")
 	}
-
+	
 	if result != nil {
 		t.Fatal("expected no result, got", result)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func Test_LoadReservationsDataWithParams(t *testing.T) {
+func Test_LoadReservationsDataWithParams_TunnelId(t *testing.T) {
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+	
+	query := `
+		SELECT * FROM reservations
+		WHERE tunnel_id = @tunnel_id::int
+			AND start_time >= @from_time::timestamptz
+			AND start_time < @to_time::timestamptz
+		ORDER BY start_time ASC
+	`
+	
+	u := uuid.New()
+	pgU1 := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
+	fromTime := pgtype.Timestamptz{Time: time.Now()}
+	toTime := pgtype.Timestamptz{Time: time.Now()}
+	tunnelId := "1"
+	
+	rows := pgxmock.NewRows([]string{"id", "customer_first_name", "customer_last_name"}).
+		AddRow(pgU1, "John", "Doe")
+	
+	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
+		"tunnel_id": tunnelId,
+		"from_time": fromTime.Time.String(),
+		"to_time":   toTime.Time.String(),
+	}).WillReturnRows(rows)
+	
+	// exercise
+	result, err := LoadReservationDataWithParams(context.Background(), mockConn, fromTime.Time.String(), toTime.Time.String(), tunnelId)
+	
+	// verify
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	
+	if result == nil {
+		t.Fatal("expected result, got none")
+	}
+	
+	if len(result) != 1 {
+		t.Fatal("expected length 1, got", len(result))
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
 
+func Test_LoadReservationsDataWithParams_NoTunnelId(t *testing.T) {
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+	
+	query := `
+		SELECT * FROM reservations
+		WHERE start_time >= @from_time::timestamptz AND start_time < @to_time::timestamptz
+		ORDER BY start_time ASC
+	`
+	
+	u := uuid.New()
+	pgU1 := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
+	fromTime := pgtype.Timestamptz{Time: time.Now()}
+	toTime := pgtype.Timestamptz{Time: time.Now()}
+	tunnelId := ""
+	
+	rows := pgxmock.NewRows([]string{"id", "customer_first_name", "customer_last_name"}).
+		AddRow(pgU1, "John", "Doe")
+	
+	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
+		"from_time": fromTime.Time.String(),
+		"to_time":   toTime.Time.String(),
+	}).WillReturnRows(rows)
+	
+	// exercise
+	result, err := LoadReservationDataWithParams(context.Background(), mockConn, fromTime.Time.String(), toTime.Time.String(), tunnelId)
+	
+	// verify
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	
+	if result == nil {
+		t.Fatal("expected result, got none")
+	}
+	
+	if len(result) != 1 {
+		t.Fatal("expected length 1, got", len(result))
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func Test_LoadReservationsDataWithParams_NotFound(t *testing.T) {
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+	
+	query := `
+		SELECT * FROM reservations
+		WHERE start_time >= @from_time::timestamptz AND start_time < @to_time::timestamptz
+		ORDER BY start_time ASC
+	`
+	
+	fromTime := pgtype.Timestamptz{Time: time.Now()}
+	toTime := pgtype.Timestamptz{Time: time.Now()}
+	tunnelId := ""
+	
+	// empty rows
+	rows := pgxmock.NewRows([]string{"id", "customer_first_name", "customer_last_name"})
+	
+	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
+		"from_time": fromTime.Time.String(),
+		"to_time":   toTime.Time.String(),
+	}).WillReturnRows(rows)
+	
+	// exercise
+	result, err := LoadReservationDataWithParams(context.Background(), mockConn, fromTime.Time.String(), toTime.Time.String(), tunnelId)
+	
+	// verify
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	
+	if result == nil {
+		t.Fatal("expected result, got none")
+	}
+	
+	if len(result) != 0 {
+		t.Fatal("expected length 0, got", len(result))
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func Test_LoadReservationsDataWithParams_Error(t *testing.T) {
-
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+	
+	query := `
+		SELECT * FROM reservations
+		WHERE start_time >= @from_time::timestamptz AND start_time < @to_time::timestamptz
+		ORDER BY start_time ASC
+	`
+	
+	fromTime := pgtype.Timestamptz{Time: time.Now()}
+	toTime := pgtype.Timestamptz{Time: time.Now()}
+	tunnelId := ""
+	
+	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
+		"from_time": fromTime.Time.String(),
+		"to_time":   toTime.Time.String(),
+	}).WillReturnError(errors.New("test error"))
+	
+	// exercise
+	result, err := LoadReservationDataWithParams(context.Background(), mockConn, fromTime.Time.String(), toTime.Time.String(), tunnelId)
+	
+	// verify
+	if err == nil {
+		t.Fatal("expected error, got none")
+	}
+	
+	if result != nil {
+		t.Fatal("expected no result, got", result)
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func Test_InsertReservationData(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	query := `
 		INSERT INTO reservations (
 			reservation_kind,
@@ -212,9 +381,9 @@ func Test_InsertReservationData(t *testing.T) {
 	`
 	u := uuid.New()
 	pgU := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
-
+	
 	var tunnelId int32 = 1
-
+	
 	testReservation := models.Reservation{
 		Id:                pgU,
 		Kind:              models.ReservationKindTunnel,
@@ -230,14 +399,14 @@ func Test_InsertReservationData(t *testing.T) {
 		Status:            models.ReservationStatusConfirmed,
 		Notes:             nil,
 	}
-
+	
 	rows := pgxmock.NewRows([]string{"id", "customer_first_name", "customer_last_name"}).
 		AddRow(
 			testReservation.Id,
 			testReservation.CustomerFirstName,
 			testReservation.CustomerLastName,
 		)
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
 		"reservation_kind":    testReservation.Kind,
 		"tunnel_id":           testReservation.TunnelId,
@@ -252,23 +421,23 @@ func Test_InsertReservationData(t *testing.T) {
 		"status":              testReservation.Status,
 		"notes":               testReservation.Notes,
 	}).WillReturnRows(rows)
-
+	
 	// exercise
 	result, err := InsertReservationData(context.Background(), mockConn, testReservation)
-
+	
 	// verify
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-
+	
 	if result == nil {
 		t.Fatal("expected result, got none")
 	}
-
+	
 	if result.Id != testReservation.Id {
 		t.Fatal("expected id ", testReservation.Id.String(), "got", result.Id.String())
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +447,7 @@ func Test_InsertReservationData_Error(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	query := `
 		INSERT INTO reservations (
 			reservation_kind,
@@ -314,9 +483,9 @@ func Test_InsertReservationData_Error(t *testing.T) {
 	`
 	u := uuid.New()
 	pgU := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
-
+	
 	var tunnelId int32 = 1
-
+	
 	testReservation := models.Reservation{
 		Id:                pgU,
 		Kind:              models.ReservationKindTunnel,
@@ -332,7 +501,7 @@ func Test_InsertReservationData_Error(t *testing.T) {
 		Status:            models.ReservationStatusConfirmed,
 		Notes:             nil,
 	}
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
 		"reservation_kind":    testReservation.Kind,
 		"tunnel_id":           testReservation.TunnelId,
@@ -347,19 +516,19 @@ func Test_InsertReservationData_Error(t *testing.T) {
 		"status":              testReservation.Status,
 		"notes":               testReservation.Notes,
 	}).WillReturnError(errors.New("test error"))
-
+	
 	// exercise
 	result, err := InsertReservationData(context.Background(), mockConn, testReservation)
-
+	
 	// verify
 	if err == nil {
 		t.Fatal("expected error, got none")
 	}
-
+	
 	if result != nil {
 		t.Fatal("expected no result, got", result)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +538,7 @@ func Test_UpdateReservationData(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	query := `
 			UPDATE reservations
 			SET
@@ -389,20 +558,20 @@ func Test_UpdateReservationData(t *testing.T) {
 			WHERE id = @id
 			RETURNING *
 	`
-
+	
 	firstName := "John"
 	lastName := "Doe"
 	phone := "1112223333"
-
+	
 	u := uuid.New()
 	pgUUID := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
-
+	
 	testReservationUpdates := models.ReservationUpdates{
 		CustomerFirstName: &firstName,
 		CustomerLastName:  &lastName,
 		CustomerPhone:     &phone,
 	}
-
+	
 	rows := pgxmock.NewRows([]string{"id", "customer_first_name", "customer_last_name", "customer_phone"}).
 		AddRow(
 			pgUUID,
@@ -410,7 +579,7 @@ func Test_UpdateReservationData(t *testing.T) {
 			*testReservationUpdates.CustomerLastName,
 			*testReservationUpdates.CustomerPhone,
 		)
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
 		"reservation_kind":    testReservationUpdates.Kind,
 		"tunnel_id":           testReservationUpdates.TunnelId,
@@ -426,23 +595,23 @@ func Test_UpdateReservationData(t *testing.T) {
 		"notes":               testReservationUpdates.Notes,
 		"id":                  pgUUID.String(),
 	}).WillReturnRows(rows)
-
+	
 	// exercise
 	result, err := UpdateReservationData(context.Background(), mockConn, pgUUID.String(), testReservationUpdates)
-
+	
 	// verify
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-
+	
 	if result == nil {
 		t.Fatal("expected result, got none")
 	}
-
+	
 	if result.Id != pgUUID {
 		t.Fatal("expected id ", pgUUID.String(), "got", result.Id.String())
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -452,7 +621,7 @@ func Test_UpdateReservationData_Error(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	query := `
 			UPDATE reservations
 			SET
@@ -472,20 +641,20 @@ func Test_UpdateReservationData_Error(t *testing.T) {
 			WHERE id = @id
 			RETURNING *
 	`
-
+	
 	firstName := "John"
 	lastName := "Doe"
 	phone := "1112223333"
-
+	
 	u := uuid.New()
 	pgUUID := pgtype.UUID{Bytes: [16]byte(u), Valid: true}
-
+	
 	testReservationUpdates := models.ReservationUpdates{
 		CustomerFirstName: &firstName,
 		CustomerLastName:  &lastName,
 		CustomerPhone:     &phone,
 	}
-
+	
 	mockConn.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(pgx.NamedArgs{
 		"reservation_kind":    testReservationUpdates.Kind,
 		"tunnel_id":           testReservationUpdates.TunnelId,
@@ -501,19 +670,19 @@ func Test_UpdateReservationData_Error(t *testing.T) {
 		"notes":               testReservationUpdates.Notes,
 		"id":                  pgUUID.String(),
 	}).WillReturnError(errors.New("test error"))
-
+	
 	// exercise
 	result, err := UpdateReservationData(context.Background(), mockConn, pgUUID.String(), testReservationUpdates)
-
+	
 	// verify
 	if err == nil {
 		t.Fatal("expected error, got none")
 	}
-
+	
 	if result != nil {
 		t.Fatal("expected no result, got", result)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -523,26 +692,26 @@ func Test_DeleteReservationData(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	u1 := uuid.New()
 	pgUUID := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
-
+	
 	mockConn.ExpectExec(regexp.QuoteMeta(`DELETE FROM reservations WHERE id=$1`)).
 		WithArgs(pgUUID.String()).
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
-
+	
 	// exercise
 	result, err := DeleteReservationData(context.Background(), mockConn, pgUUID.String())
-
+	
 	// verify
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-
+	
 	if result != 1 {
 		t.Fatal("expected 1 deleted row, got", result)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
@@ -552,26 +721,26 @@ func Test_DeleteReservationData_Error(t *testing.T) {
 	// setup
 	mockConn, _ := pgxmock.NewConn()
 	defer mockConn.Close(context.Background())
-
+	
 	u1 := uuid.New()
 	pgUUID := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
-
+	
 	mockConn.ExpectExec(regexp.QuoteMeta(`DELETE FROM reservations WHERE id=$1`)).
 		WithArgs(pgUUID.String()).
 		WillReturnError(errors.New("test error"))
-
+	
 	// exercise
 	result, err := DeleteReservationData(context.Background(), mockConn, pgUUID.String())
-
+	
 	// verify
 	if err == nil {
 		t.Fatal("expected error, got none")
 	}
-
+	
 	if result != 0 {
 		t.Fatal("expected 0 deleted rows, got", result)
 	}
-
+	
 	if err = mockConn.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}

@@ -64,6 +64,10 @@ func Test_LoadCoachesData_Error(t *testing.T) {
 	if result != nil {
 		t.Fatal("expected no result, got", result)
 	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func Test_InsertCoachData(t *testing.T) {
@@ -135,6 +139,10 @@ func Test_InsertCoachData(t *testing.T) {
 	if result.Id != testCoach.Id {
 		t.Fatal("expected id ", testCoach.Id.String(), "got", result.Id.String())
 	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func Test_InsertCoachData_Error(t *testing.T) {
@@ -191,6 +199,10 @@ func Test_InsertCoachData_Error(t *testing.T) {
 	
 	if result != nil {
 		t.Fatal("expected no result, got", result)
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -266,6 +278,10 @@ func Test_UpdateCoachData(t *testing.T) {
 	if result.Id != pgUUID {
 		t.Fatal("expected id ", pgUUID.String(), "got", result.Id.String())
 	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func Test_UpdateCoachData_Error(t *testing.T) {
@@ -324,5 +340,67 @@ func Test_UpdateCoachData_Error(t *testing.T) {
 	
 	if result != nil {
 		t.Fatal("expected no result, got something")
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func Test_DeleteCoachData(t *testing.T) {
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+	
+	u1 := uuid.New()
+	pgUUID := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
+	
+	mockConn.ExpectExec(regexp.QuoteMeta(`DELETE FROM coaches WHERE id=$1`)).
+		WithArgs(pgUUID.String()).
+		WillReturnResult(pgxmock.NewResult("DELETE", 1))
+	
+	// exercise
+	result, err := DeleteCoachData(context.Background(), mockConn, pgUUID.String())
+	
+	// verify
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	
+	if result != 1 {
+		t.Fatal("expected 1 deleted row, got", result)
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func Test_DeleteCoachData_Error(t *testing.T) {
+	// setup
+	mockConn, _ := pgxmock.NewConn()
+	defer mockConn.Close(context.Background())
+	
+	u1 := uuid.New()
+	pgUUID := pgtype.UUID{Bytes: [16]byte(u1), Valid: true}
+	
+	mockConn.ExpectExec(regexp.QuoteMeta(`DELETE FROM coaches WHERE id=$1`)).
+		WithArgs(pgUUID.String()).
+		WillReturnError(errors.New("test error"))
+	
+	// exercise
+	result, err := DeleteCoachData(context.Background(), mockConn, pgUUID.String())
+	
+	// verify
+	if err == nil {
+		t.Fatal("expected error, got none")
+	}
+	
+	if result != 0 {
+		t.Fatal("expected no deleted rows, got", result)
+	}
+	
+	if err = mockConn.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }

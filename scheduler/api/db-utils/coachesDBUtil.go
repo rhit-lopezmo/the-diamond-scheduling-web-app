@@ -86,7 +86,7 @@ func UpdateCoachData(ctx context.Context, conn IDBConn, id string, updates model
 				updated_at = now()
 			WHERE id = @id
 			RETURNING *
-		`
+	`
 
 	err := pgxscan.Get(ctx, conn, &updatedCoach, query, args)
 

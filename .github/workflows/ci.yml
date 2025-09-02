@@ -11,7 +11,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # All `run:` steps execute from ./scheduler/api
     defaults:
       run:
         working-directory: scheduler/api
@@ -23,12 +22,10 @@ jobs:
         with:
           go-version: '1.22.x'
           cache: true
-          # project is in a subfolder, so point the cache at its go.sum
           cache-dependency-path: scheduler/api/go.sum
 
-      - name: Download modules
-        run: go mod download
+      - name: Ensure modules are tidy
+        run: go mod tidy
 
       - name: Run tests
-        run: go test ./... -v
-
+        run: go test ./... -race -v

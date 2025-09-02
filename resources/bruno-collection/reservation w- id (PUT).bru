@@ -1,7 +1,7 @@
 meta {
   name: reservation w/ id (PUT)
   type: http
-  seq: 7
+  seq: 9
 }
 
 put {
@@ -11,17 +11,11 @@ put {
 }
 
 params:path {
-  id: testing-id-param
+  id: 2c6144a4-f08f-4760-96f7-f87a7ca44fb4
 }
 
 body:json {
   {
-    "id": "testing-id-param",
-    "tunnel_id": 1,
-    "customer_id": "customer-id",
-    "title": "Lopez - 60 min",
-    "starts_at": "2025-07-09T15:00:00Z",
-    "ends_at": "2025-07-09T16:00:00Z",
-    "notes": "Bring helmet"
+    "customer_first_name": "Manuel"
   }
 }

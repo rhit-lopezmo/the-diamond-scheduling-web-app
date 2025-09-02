@@ -1,0 +1,21 @@
+meta {
+  name: coaches (PUT)
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{host}}/api/coaches/:id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  id: 0d242579-0376-4d15-80f1-454559723a05
+}
+
+body:json {
+  {
+   "first_name": "Manuel" 
+  }
+}

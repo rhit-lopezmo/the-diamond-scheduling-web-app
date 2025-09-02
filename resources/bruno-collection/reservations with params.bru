@@ -1,17 +1,17 @@
 meta {
   name: reservations with params
   type: http
-  seq: 4
+  seq: 5
 }
 
 get {
-  url: {{host}}/api/reservations/search?from=2025-07-09T15:00:00Z&to=2025-08-09T15:00:00Z&tunnel_id=3
+  url: {{host}}/api/reservations/search?from=2025-08-26T00:00:00Z&to=2025-08-27T00:00:00Z&tunnel_id=1
   body: none
   auth: inherit
 }
 
 params:query {
-  from: 2025-07-09T15:00:00Z
-  to: 2025-08-09T15:00:00Z
-  tunnel_id: 3
+  from: 2025-08-26T00:00:00Z
+  to: 2025-08-27T00:00:00Z
+  tunnel_id: 1
 }
